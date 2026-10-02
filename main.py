@@ -16,10 +16,14 @@ app = FastAPI(title="Universal Exam Study Buddy")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 # Open-weight model config
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
-LLM_API_KEY = os.getenv("LLM_API_KEY", "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")
-LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL")
+LLM_API_KEY = os.getenv("LLM_API_KEY")
+LLM_MODEL = os.getenv("LLM_MODEL")
 FALLBACK_STR = os.getenv("LLM_FALLBACK_MODELS", "openai/gpt-oss-20b,llama-3.1-8b-instant")
+
+# Ensure required secrets are present (use .env for local development)
+if not LLM_API_KEY:
+    raise RuntimeError("Missing LLM_API_KEY. Set it in the .env file or as an environment variable.")
 LLM_FALLBACK_MODELS = [m.strip() for m in FALLBACK_STR.split(",") if m.strip()]
 
 # Determine if model is "small" (< 3B params) for UI warning
