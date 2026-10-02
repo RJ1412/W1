@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aman's Study Buddy</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .htmx-indicator { display: none; }
+        .htmx-request .htmx-indicator { display: block; }
+        .htmx-request.htmx-indicator { display: block; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 p-4 sm:p-8 font-sans">
+    <div class="max-w-2xl mx-auto bg-white p-6 rounded-xl shadow-md border border-gray-100">
+        <h1 class="text-3xl font-extrabold mb-2 text-blue-900">SSC CGL Study Buddy</h1>
+        <p class="mb-6 text-gray-600">Paste the question you got wrong, and I'll explain it in Hinglish!</p>
+        
+        <form hx-post="/ask" hx-target="#response" hx-indicator="#loading" class="space-y-4">
+            <div>
+                <label class="block font-bold mb-1 text-sm text-gray-700">Question:</label>
+                <textarea name="question" rows="4" class="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Paste the mock test question here..." required></textarea>
+            </div>
+            <div>
+                <label class="block font-bold mb-1 text-sm text-gray-700">Your Answer / Mistake:</label>
+                <textarea name="answer" rows="2" class="w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="What did you mark? Or what part confused you?" required></textarea>
+            </div>
+            <button type="submit" class="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 w-full font-bold transition-colors">Ask Buddy</button>
+        </form>
+
+        <div id="loading" class="htmx-indicator mt-6 text-center text-blue-600 font-semibold animate-pulse">
+            Buddy is thinking (Running locally on your device)...
+        </div>
+
+        <div id="response" class="mt-4"></div>
+    </div>
+</body>
+</html>
