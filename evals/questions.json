@@ -1,0 +1,92 @@
+[
+  {
+    "exam": "SSC CGL",
+    "question": "If 20% of a = b, then b% of 20 is the same as:",
+    "answer": "I marked 5% of a. I thought since 20% of a is b, 20% of 20 is 4.",
+    "expected_concept": "4% of a"
+  },
+  {
+    "exam": "SSC CGL",
+    "question": "A shopkeeper marks his goods 40% above CP and gives 25% discount. What is profit %?",
+    "answer": "15% profit (40-25)",
+    "expected_concept": "5% profit"
+  },
+  {
+    "exam": "SSC CGL",
+    "question": "Find the odd one out: 8, 27, 64, 100, 125, 216",
+    "answer": "125 because it ends in 5",
+    "expected_concept": "100 is not a perfect cube"
+  },
+  {
+    "exam": "Banking PO",
+    "question": "Statements: All cars are cats. Some cats are dogs. Conclusion: Some dogs are cars.",
+    "answer": "Follows. If all cars are cats, then cats are cars.",
+    "expected_concept": "Does not follow, no direct relation."
+  },
+  {
+    "exam": "UPSC",
+    "question": "Which of the following is not a fundamental right? Right to Property.",
+    "answer": "I marked Right to Equality.",
+    "expected_concept": "Right to Property was removed by 44th Amendment."
+  },
+  {
+    "exam": "SSC CHSL",
+    "question": "In a certain code, ROAST is written as PQYUR. How is SLOPPY written?",
+    "answer": "QJMNMW. I just subtracted 2 from each.",
+    "expected_concept": "Pattern is -2, -2, -2... correct is QJMNMW, wait. If R(-2)=P, O(-2)=M? R is 18, P is 16. O is 15, Q is 17. Pattern is -2, +2, -2, +2."
+  },
+  {
+    "exam": "CAT",
+    "question": "The sum of ages of 5 children born at intervals of 3 years each is 50. What is the age of the youngest?",
+    "answer": "5 years. I did 50/5 = 10, so 10-5 = 5.",
+    "expected_concept": "4 years. x, x+3, x+6, x+9, x+12 = 50 => 5x + 30 = 50 => x = 4"
+  },
+  {
+    "exam": "IBPS Clerk",
+    "question": "A train running at 72 km/hr crosses a 260m platform in 23 seconds. Find the length of the train.",
+    "answer": "300m. 72 * 5/18 = 20m/s. 20 * 23 = 460. 460 - 260 = 200.",
+    "expected_concept": "200m."
+  },
+  {
+    "exam": "UPSC",
+    "question": "The Tropic of Cancer does not pass through which Indian state?",
+    "answer": "Chhattisgarh. I thought it's too far south.",
+    "expected_concept": "Odisha or Manipur etc depending on options, but it DOES pass through Chhattisgarh."
+  },
+  {
+    "exam": "SSC CGL",
+    "question": "Synonym of 'Abundant'",
+    "answer": "Scarce, because it sounded like abundant.",
+    "expected_concept": "Plentiful. Scarce is the antonym."
+  },
+  {
+    "exam": "Banking PO",
+    "question": "If A is brother of B, B is sister of C, and C is father of D, how is D related to A?",
+    "answer": "Nephew. I assumed D is male.",
+    "expected_concept": "Cannot be determined (gender of D is unknown)."
+  },
+  {
+    "exam": "CAT",
+    "question": "How many factors does 360 have?",
+    "answer": "12. I just divided by 30.",
+    "expected_concept": "24 factors. 2^3 * 3^2 * 5^1 => 4 * 3 * 2 = 24."
+  },
+  {
+    "exam": "SSC CGL",
+    "question": "Identify the error: 'He is one of the best players who has ever lived.'",
+    "answer": "No error. Sounds right.",
+    "expected_concept": "'who have ever lived' because 'who' refers to 'players' (plural)."
+  },
+  {
+    "exam": "UPSC",
+    "question": "Who was the first Governor-General of independent India?",
+    "answer": "C. Rajagopalachari. He was the first Indian.",
+    "expected_concept": "Lord Mountbatten. Rajagopalachari was the first *Indian*."
+  },
+  {
+    "exam": "SSC CGL",
+    "question": "If x + 1/x = 3, find x^2 + 1/x^2",
+    "answer": "9. Just squared 3.",
+    "expected_concept": "7. (x+1/x)^2 = x^2 + 1/x^2 + 2 = 9 => x^2 + 1/x^2 = 7."
+  }
+]

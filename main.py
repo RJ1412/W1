@@ -1,44 +1,44 @@
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from pathlib import Path
-import asyncio
-import httpx
 import os
 import html
-import socket
+import asyncio
+from pathlib import Path
+from fastapi import FastAPI, Request, Form
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
+from openai import AsyncOpenAI, APIConnectionError, RateLimitError
+from dotenv import load_dotenv
 
-# Prioritize IPv4 on Windows to prevent network timeouts to Google API endpoints
-_orig_getaddrinfo = socket.getaddrinfo
-def _ipv4_first_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-    try:
-        res = _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
-        if res:
-            return res
-    except Exception:
-        pass
-    return _orig_getaddrinfo(host, port, family, type, proto, flags)
-socket.getaddrinfo = _ipv4_first_getaddrinfo
+load_dotenv(override=True)
 
 BASE_DIR = Path(__file__).resolve().parent
 
 app = FastAPI(title="Universal Exam Study Buddy")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AQ.Ab8RN6JvWkjDez0LJyMON7cB1osRLbGOnLizlTOodVuttsA2Qw")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "")  # leave empty to use auto-fallback
-GEMINI_MODEL_FALLBACKS = [
-    "gemini-2.5-flash",
-    "gemini-3.5-flash",
-    "gemini-3.1-flash-lite",
-    "gemini-3-flash-preview",
-    "gemini-3.8-flash",
-    "gemini-flash-latest",
-    "gemini-2.0-flash",
-    "gemini-2.0-flash-lite",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-8b",
-]
+# Open-weight model config
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
+LLM_API_KEY = os.getenv("LLM_API_KEY", "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")
+LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
+FALLBACK_STR = os.getenv("LLM_FALLBACK_MODELS", "openai/gpt-oss-20b,llama-3.1-8b-instant")
+LLM_FALLBACK_MODELS = [m.strip() for m in FALLBACK_STR.split(",") if m.strip()]
+
+# Determine if model is "small" (< 3B params) for UI warning
+def is_small_model(model_name: str) -> bool:
+    name = model_name.lower()
+    return "0.5b" in name or "1b" in name or "1.5b" in name or "2b" in name
+
+client = AsyncOpenAI(
+    base_url=LLM_BASE_URL,
+    api_key=LLM_API_KEY
+)
+
+@app.get("/api/health")
+async def health_check():
+    return JSONResponse({
+        "status": "ok",
+        "model": LLM_MODEL,
+        "is_small": is_small_model(LLM_MODEL)
+    })
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -63,135 +63,95 @@ async def ask_question(
     else:
         lang_instruction = "Friendly, informal Hinglish (Roman script). Keep exam and subject terms in English (e.g., quant, reasoning, percentile, speed-time, elimination)."
 
-    prompt = f"""You are an elite competitive exam mentor and friendly study buddy specializing in {exam}.
-The student ({student_name}) got a mock test or practice question wrong.
-Explain their mistake with high energy, supportive empathy, and razor-sharp exam clarity.
+    prompt_path = BASE_DIR / "prompts" / "mentor_v1.txt"
+    with open(prompt_path, "r", encoding="utf-8") as f:
+        prompt_template = f.read()
 
-Target Exam: {exam}
-Student Name: {student_name}
-Language / Tone: {lang_instruction}
+    prompt = prompt_template.format(
+        exam=exam,
+        student_name=student_name,
+        lang_instruction=lang_instruction,
+        question=question,
+        answer=answer
+    )
 
-Question:
-{question}
-
-Student's Marked Option / Mistake:
-{answer}
-
-Please structure your explanation using clean GitHub-flavored Markdown with these exact sections:
-
-### 💡 1. Quick Diagnosis: Where the Logic Tripped
-(Explain in 2-3 friendly sentences where the student's thought process went off track—e.g., calculation rush, misinterpreting the phrasing, or falling for a common distractor.)
-
-### 🎯 2. Step-by-Step Correct Solution
-(Provide a clear, methodical walkthrough. Highlight key numbers, formulas, and intermediate deductions in **bold** so it's super easy to scan.)
-
-### ⚠️ 3. The Exam Trap (Distractor Breakdown)
-(Explain why the question setter designed this specific trap and why students commonly mark this wrong option in {exam}.)
-
-### 🧠 4. Buddy's Pro-Tip & Speed Trick
-(Provide a 30-second shortcut, elimination technique, or memory trick to guarantee they never get this type of question wrong again.)
-
-Conclude with a brief 1-line motivational cheer for {student_name}!
-"""
-
-    # Use env-override model, or auto-select first working from fallback list
-    models_to_try = [GEMINI_MODEL] if GEMINI_MODEL else GEMINI_MODEL_FALLBACKS
-
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 2048}
-    }
-
+    models_to_try = [LLM_MODEL] + LLM_FALLBACK_MODELS
     llm_reply = ""
     error_msg = None
+    used_model = LLM_MODEL
 
     for model in models_to_try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
-
+        used_model = model
         for attempt in range(2):
             try:
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(url, json=payload, timeout=60.0)
-
-                if response.status_code == 200:
-                    data = response.json()
-                    candidates = data.get("candidates", [])
-                    if candidates and "content" in candidates[0]:
-                        parts = candidates[0]["content"].get("parts", [])
-                        llm_reply = "".join(p.get("text", "") for p in parts)
-                    else:
-                        llm_reply = "No answer generated. Please try again."
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.7,
+                    max_tokens=2048,
+                    timeout=60.0
+                )
+                if response.choices and response.choices[0].message.content:
+                    llm_reply = response.choices[0].message.content
                     error_msg = None
-                    break  # success — stop retrying this model
-
-                elif response.status_code == 404:
-                    error_msg = f"model_not_found:{model}"
-                    break  # try next model in fallback list
-
-                elif response.status_code == 429 and attempt == 0:
-                    try:
-                        details = response.json().get("error", {}).get("details", [])
-                        retry_delay = 30
-                        for d in details:
-                            if d.get("@type", "").endswith("RetryInfo"):
-                                raw = d.get("retryDelay", "30s")
-                                retry_delay = int("".join(filter(str.isdigit, raw))) + 2
-                        retry_delay = min(retry_delay, 35)
-                    except Exception:
-                        retry_delay = 30
-                    await asyncio.sleep(retry_delay)
-                    continue  # retry same model after waiting
-
-                elif response.status_code == 429:
-                    error_msg = (
-                        "Daily free quota exhausted (20 req/day per key). "
-                        "Get a new API key at aistudio.google.com/app/apikey "
-                        "or wait until 5:30 AM IST for reset."
-                    )
-                    break
-
-                elif response.status_code == 503 and attempt == 0:
-                    await asyncio.sleep(3)
-                    continue
-
                 else:
-                    error_msg = f"API error {response.status_code} on model {model}."
-                    break
-
-            except Exception as e:
+                    error_msg = "No answer generated. Please try again."
+                break  # success or empty response
+                
+            except RateLimitError as e:
                 if attempt == 0:
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(4)
                     continue
-                error_msg = f"Connection error: {str(e)}"
-
+                error_msg = f"Rate limit exhausted for {model}. Try later."
+                break
+            except APIConnectionError as e:
+                if attempt == 0:
+                    await asyncio.sleep(2)
+                    continue
+                error_msg = f"Connection error to API. Please check your internet or LLM_BASE_URL."
+                break
+            except Exception as e:
+                err_str = str(e).lower()
+                if "404" in err_str or "not found" in err_str:
+                    error_msg = f"model_not_found"
+                    break # try next model
+                if attempt == 0:
+                    await asyncio.sleep(2)
+                    continue
+                error_msg = f"API error: {str(e)}"
+                break
+                
         if llm_reply:
-            break  # got a response — stop trying other models
-        if error_msg and not error_msg.startswith("model_not_found"):
-            break  # real error (quota/connection) — don't try more models
+            break
+        if error_msg and error_msg != "model_not_found":
+            break
 
-    # If all models returned 404
-    if not llm_reply and (not error_msg or error_msg.startswith("model_not_found")):
-        error_msg = (
-            "No compatible model found for your API key. "
-            "Please get a new key at aistudio.google.com/app/apikey"
-        )
+    if not llm_reply and error_msg == "model_not_found":
+        error_msg = "No compatible models found. Please check your LLM_MODEL configuration."
 
     if error_msg:
         return f"""
         <div class="rounded-xl border border-[#e3d7c8] bg-[#fdfbf9] p-5 text-[#5c4033]">
-            <p class="font-semibold text-sm text-[#3a271e]">Quota Limit Reached</p>
+            <p class="font-semibold text-sm text-[#3a271e]">Connection or Quota Issue</p>
             <p class="mt-1 text-xs text-[#8c684e]">{html.escape(error_msg)}</p>
         </div>
         """
 
-
     escaped_markdown = html.escape(llm_reply)
     escaped_exam = html.escape(exam)
     escaped_student = html.escape(student_name)
+    
+    warning_html = ""
+    if is_small_model(used_model):
+        warning_html = """
+        <div class="bg-orange-50 border-b border-orange-100 px-5 py-2 text-[11px] text-orange-800 flex items-center gap-2">
+            <span>⚠️</span> Small model active. Double-check math answers.
+        </div>
+        """
 
     return f"""
     <div id="solution-card" class="rounded-2xl border border-[#e3d7c8] bg-white overflow-hidden">
-        <!-- Warm header -->
+        {warning_html}
         <div class="bg-[#f8f5f0] border-b border-[#e3d7c8] px-5 py-4 flex items-center justify-between">
             <div>
                 <span class="text-xs font-semibold text-[#8c684e] uppercase tracking-wide">Buddy's Explanation</span>
@@ -206,7 +166,6 @@ Conclude with a brief 1-line motivational cheer for {student_name}!
             </button>
         </div>
 
-        <!-- Formatted Content -->
         <div class="p-5 sm:p-7">
             <textarea id="raw-markdown-content" class="hidden">{escaped_markdown}</textarea>
             <div id="formatted-solution" class="text-sm text-[#4a382e] leading-relaxed">
@@ -214,9 +173,8 @@ Conclude with a brief 1-line motivational cheer for {student_name}!
             </div>
         </div>
 
-        <!-- Footer -->
         <div class="border-t border-[#efe8de] px-5 py-3 flex items-center justify-between">
-            <span class="text-xs text-[#ba9e89]">Powered by Gemini</span>
+            <span class="text-[10px] text-[#ba9e89] uppercase tracking-wider font-semibold">Powered by {html.escape(used_model)} • open-weight</span>
             <button type="button"
                 onclick="document.getElementById('question-input').scrollIntoView({{behavior:'smooth'}}); document.getElementById('question-input').focus();"
                 class="text-xs font-medium text-[#8c684e] hover:text-[#5c4033] transition-colors">
